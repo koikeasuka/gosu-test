@@ -37,6 +37,7 @@ class Game < Gosu::Window
   OBSTACLE_WIDTH = 20
   OBSTACLE_HEIGHT = 40
   SPAWN_INTERVAL = 100
+  PLAYER_SCALE = 0.2  # プレイヤーの表示スケール
 
   def initialize
     super 640, 480
@@ -54,12 +55,14 @@ class Game < Gosu::Window
   end
 
   def update
+    return if @game_over
+
     # ジャンプ・落下処理
     @vy += GRAVITY
     @y += @vy
 
     # 地面判定（画面の下を地面にする）
-    ground_y = height - @player.height
+    ground_y = height - (@player.height * PLAYER_SCALE)
     if @y >= ground_y
       @y = ground_y
       @vy = 0
@@ -79,17 +82,51 @@ class Game < Gosu::Window
 
     # 画面外の障害物を削除
     @obstacles.reject! { |obstacle| obstacle.off_screen? }
+
+    # 衝突判定
+    @obstacles.each do |obstacle|
+      if obstacle.colliding?(@x, @y, @player.width * PLAYER_SCALE, @player.height * PLAYER_SCALE)
+        @game_over = true
+        break
+      end
+    end
   end
 
   def draw
-    @player.draw(@x, @y, 0)
+    @player.draw(@x, @y, 0, PLAYER_SCALE, PLAYER_SCALE)
     @obstacles.each { |obstacle| obstacle.draw }
+
+    if @game_over
+      font = Gosu::Font.new(48)
+      text = "GAME OVER"
+      text_width = font.text_width(text)
+      font.draw_text(text, (width - text_width) / 2, height / 2 - 50, 1, 1, 1, Gosu::Color::RED)
+
+      restart_font = Gosu::Font.new(24)
+      restart_text = "Press R to Restart"
+      restart_width = restart_font.text_width(restart_text)
+      restart_font.draw_text(restart_text, (width - restart_width) / 2, height / 2 + 20, 1, 1, 1, Gosu::Color::WHITE)
+    end
+  end
+
+  def reset_game
+    @x = 100
+    @y = 240
+    @vy = 0
+    @on_ground = true
+    @obstacles = []
+    @frame_count = 0
+    @game_over = false
   end
 
   def button_down(id)
-    if id == Gosu::KB_SPACE && @on_ground
+    if id == Gosu::KB_SPACE && @on_ground && !@game_over
       @vy = JUMP_POWER
       @on_ground = false
+    end
+
+    if id == Gosu::KB_R && @game_over
+      reset_game
     end
 
     close if id == Gosu::KB_ESCAPE
