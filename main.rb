@@ -43,6 +43,10 @@ class Game < Gosu::Window
     super 640, 480
     self.caption = "Jamping Game"
 
+    # フレームレート制限（ラズパイのパフォーマンス向上）
+    # 33.33ms = 30FPS（デフォルトは16.67ms = 60FPS）
+    self.update_interval = 33.33
+
     @player = Gosu::Image.new("player.png")
     @x = 100  # 画面左側に固定
     @y = 240
@@ -52,6 +56,13 @@ class Game < Gosu::Window
     @obstacles = []
     @frame_count = 0
     @game_over = false
+
+    # フォントを事前に作成してキャッシュ（パフォーマンス向上）
+    @game_over_font = Gosu::Font.new(48)
+    @restart_font = Gosu::Font.new(24)
+
+    # ground_yを事前計算
+    @ground_y = height - (@player.height * PLAYER_SCALE)
   end
 
   def update
@@ -62,9 +73,8 @@ class Game < Gosu::Window
     @y += @vy
 
     # 地面判定（画面の下を地面にする）
-    ground_y = height - (@player.height * PLAYER_SCALE)
-    if @y >= ground_y
-      @y = ground_y
+    if @y >= @ground_y
+      @y = @ground_y
       @vy = 0
       @on_ground = true
     end
@@ -97,15 +107,13 @@ class Game < Gosu::Window
     @obstacles.each { |obstacle| obstacle.draw }
 
     if @game_over
-      font = Gosu::Font.new(48)
       text = "GAME OVER"
-      text_width = font.text_width(text)
-      font.draw_text(text, (width - text_width) / 2, height / 2 - 50, 1, 1, 1, Gosu::Color::RED)
+      text_width = @game_over_font.text_width(text)
+      @game_over_font.draw_text(text, (width - text_width) / 2, height / 2 - 50, 1, 1, 1, Gosu::Color::RED)
 
-      restart_font = Gosu::Font.new(24)
       restart_text = "Press button to Restart"
-      restart_width = restart_font.text_width(restart_text)
-      restart_font.draw_text(restart_text, (width - restart_width) / 2, height / 2 + 20, 1, 1, 1, Gosu::Color::WHITE)
+      restart_width = @restart_font.text_width(restart_text)
+      @restart_font.draw_text(restart_text, (width - restart_width) / 2, height / 2 + 20, 1, 1, 1, Gosu::Color::WHITE)
     end
   end
 
