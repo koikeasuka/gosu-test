@@ -103,7 +103,7 @@ class Game < Gosu::Window
       font.draw_text(text, (width - text_width) / 2, height / 2 - 50, 1, 1, 1, Gosu::Color::RED)
 
       restart_font = Gosu::Font.new(24)
-      restart_text = "Press R to Restart"
+      restart_text = "Press button to Restart"
       restart_width = restart_font.text_width(restart_text)
       restart_font.draw_text(restart_text, (width - restart_width) / 2, height / 2 + 20, 1, 1, 1, Gosu::Color::WHITE)
     end
