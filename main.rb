@@ -38,6 +38,7 @@ class Game < Gosu::Window
   OBSTACLE_HEIGHT = 40
   SPAWN_INTERVAL = 100
   PLAYER_SCALE = 0.2  # プレイヤーの表示スケール
+  SCORE_INCREMENT_INTERVAL = 10  # スコア増加の間隔
 
   def initialize
     super 640, 480
@@ -52,10 +53,25 @@ class Game < Gosu::Window
     @obstacles = []
     @frame_count = 0
     @game_over = false
+    @score = 0
+    @score_counter = 0
+
+    # フォントを初期化時に一度だけ作成
+    @score_font = Gosu::Font.new(24)
+    @gameover_font = Gosu::Font.new(48)
+    @final_score_font = Gosu::Font.new(32)
+    @restart_font = Gosu::Font.new(24)
   end
 
   def update
     return if @game_over
+
+    # スコアの更新
+    @score_counter += 1
+    if @score_counter >= SCORE_INCREMENT_INTERVAL
+      @score += 1
+      @score_counter = 0
+    end
 
     # ジャンプ・落下処理
     @vy += GRAVITY
@@ -96,16 +112,23 @@ class Game < Gosu::Window
     @player.draw(@x, @y, 0, PLAYER_SCALE, PLAYER_SCALE)
     @obstacles.each { |obstacle| obstacle.draw }
 
-    if @game_over
-      font = Gosu::Font.new(48)
-      text = "GAME OVER"
-      text_width = font.text_width(text)
-      font.draw_text(text, (width - text_width) / 2, height / 2 - 50, 1, 1, 1, Gosu::Color::RED)
+    # スコア表示（画面右上）
+    score_text = "Score: #{@score.to_s.rjust(4, '0')}"
+    @score_font.draw_text(score_text, width - 150, 10, 1, 1, 1, Gosu::Color::WHITE)
 
-      restart_font = Gosu::Font.new(24)
+    if @game_over
+      text = "GAME OVER"
+      text_width = @gameover_font.text_width(text)
+      @gameover_font.draw_text(text, (width - text_width) / 2, height / 2 - 80, 1, 1, 1, Gosu::Color::RED)
+
+      # 最終スコア表示
+      final_score_text = "Final Score: #{@score}"
+      final_score_width = @final_score_font.text_width(final_score_text)
+      @final_score_font.draw_text(final_score_text, (width - final_score_width) / 2, height / 2 - 20, 1, 1, 1, Gosu::Color::YELLOW)
+
       restart_text = "Press R to Restart"
-      restart_width = restart_font.text_width(restart_text)
-      restart_font.draw_text(restart_text, (width - restart_width) / 2, height / 2 + 20, 1, 1, 1, Gosu::Color::WHITE)
+      restart_width = @restart_font.text_width(restart_text)
+      @restart_font.draw_text(restart_text, (width - restart_width) / 2, height / 2 + 40, 1, 1, 1, Gosu::Color::WHITE)
     end
   end
 
@@ -117,6 +140,8 @@ class Game < Gosu::Window
     @obstacles = []
     @frame_count = 0
     @game_over = false
+    @score = 0
+    @score_counter = 0
   end
 
   def button_down(id)
