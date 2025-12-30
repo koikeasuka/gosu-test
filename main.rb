@@ -33,10 +33,10 @@ end
 class Game < Gosu::Window
   GRAVITY = 1
   JUMP_POWER = -20
-  OBSTACLE_SPEED = 5
+  OBSTACLE_SPEED = 7
   OBSTACLE_WIDTH = 20
   OBSTACLE_HEIGHT = 40
-  SPAWN_INTERVAL = 100
+  SPAWN_INTERVAL = 80
   PLAYER_SCALE = 0.2  # プレイヤーの表示スケール
 
   def initialize
@@ -45,7 +45,7 @@ class Game < Gosu::Window
 
     # フレームレート制限（ラズパイのパフォーマンス向上）
     # 33.33ms = 30FPS（デフォルトは16.67ms = 60FPS）
-    self.update_interval = 33.33
+    self.update_interval = 16.67
 
     @player = Gosu::Image.new("player.png")
     @x = 100  # 画面左側に固定
