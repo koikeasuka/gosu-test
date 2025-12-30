@@ -41,7 +41,7 @@ class Game < Gosu::Window
 
   def initialize
     super 640, 480
-    self.caption = "T-Rex Game"
+    self.caption = "Janmping Game"
 
     @player = Gosu::Image.new("player.png")
     @x = 100  # 画面左側に固定
