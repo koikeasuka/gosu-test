@@ -150,7 +150,7 @@ class Game < Gosu::Window
       @on_ground = false
     end
 
-    if id == Gosu::KB_ENTER && @game_over
+    if id == Gosu::KB_RETURN && @game_over
       reset_game
     end
 
