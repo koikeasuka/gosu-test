@@ -145,12 +145,12 @@ class Game < Gosu::Window
   end
 
   def button_down(id)
-    if id == Gosu::KB_SPACE && @on_ground && !@game_over
+    if id == Gosu::KB_B && @on_ground && !@game_over
       @vy = JUMP_POWER
       @on_ground = false
     end
 
-    if id == Gosu::KB_R && @game_over
+    if id == Gosu::KB_ENTER && @game_over
       reset_game
     end
 
