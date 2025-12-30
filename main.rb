@@ -31,9 +31,9 @@ class Obstacle
 end
 
 class Game < Gosu::Window
-  GRAVITY = 1
-  JUMP_POWER = -20
-  OBSTACLE_SPEED = 7
+  GRAVITY = 1.5
+  JUMP_POWER = -22
+  OBSTACLE_SPEED = 10
   OBSTACLE_WIDTH = 20
   OBSTACLE_HEIGHT = 40
   SPAWN_INTERVAL = 80
@@ -45,7 +45,7 @@ class Game < Gosu::Window
 
     # フレームレート制限（ラズパイのパフォーマンス向上）
     # 33.33ms = 30FPS（デフォルトは16.67ms = 60FPS）
-    self.update_interval = 16.67
+    self.update_interval = 33.33
 
     @player = Gosu::Image.new("player.png")
     @x = 100  # 画面左側に固定
