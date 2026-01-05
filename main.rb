@@ -23,8 +23,8 @@ class GPIO
     # デバッグ: コマンドの生の出力を表示
     puts "DEBUG: gpioget output: '#{result}'"
     # 出力形式: "17"=inactive または "17"=active
-    # active = 1 (非接触状態), inactive = 0 (接触した状態)
-    result.include?("active") ? 1 : 0
+    # =active = 1 (非接触状態), =inactive = 0 (接触した状態)
+    result.include?("=active") ? 1 : 0
   end
 
   def cleanup
