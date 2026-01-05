@@ -106,10 +106,8 @@ class Game < Gosu::Window
     gpio_value = @jump_button.read
     button_state = gpio_value == 0
 
-    # デバッグ: 10フレームごとにGPIO値を表示
-    if @frame_count % 10 == 0
-      puts "GPIO17: #{gpio_value}, Button: #{button_state}"
-    end
+    # デバッグ: GPIO値を毎フレーム表示
+    puts "GPIO17: #{gpio_value}, Button: #{button_state}, OnGround: #{@on_ground}, Cooldown: #{@button_cooldown}"
 
     if @game_over
       # ゲームオーバー時：ボタンでリスタート
