@@ -103,7 +103,13 @@ class Game < Gosu::Window
     @button_cooldown -= 1 if @button_cooldown > 0
 
     # GPIO17の状態を確認（LOWで押された状態）
-    button_state = @jump_button.read == 0
+    gpio_value = @jump_button.read
+    button_state = gpio_value == 0
+
+    # デバッグ: 10フレームごとにGPIO値を表示
+    if @frame_count % 10 == 0
+      puts "GPIO17: #{gpio_value}, Button: #{button_state}"
+    end
 
     if @game_over
       # ゲームオーバー時：ボタンでリスタート
