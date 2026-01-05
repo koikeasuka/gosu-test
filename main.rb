@@ -16,13 +16,13 @@ class GPIO
   end
 
   def read
-    return 1 unless @available  # gpiogetが使えない場合は常にHIGH（押されていない状態）
+    return 0 unless @available  # gpiogetが使えない場合は常にLOW（押されていない状態）
 
-    # gpioget でGPIO17の値を読み取り（バイアス設定でプルアップ）
-    result = `gpioget -c #{@chip} -b pull-up #{@pin}`.strip
+    # gpioget でGPIO17の値を読み取り（バイアス設定でプルダウン）
+    result = `gpioget -c #{@chip} -b pull-down #{@pin}`.strip
     # 出力形式: "17"=inactive または "17"=active
-    # inactive = 0 (押された状態), active = 1 (押されていない状態)
-    result.include?("inactive") ? 0 : 1
+    # active = 1 (接触した状態), inactive = 0 (接触していない状態)
+    result.include?("active") ? 1 : 0
   end
 
   def cleanup
@@ -104,9 +104,9 @@ class Game < Gosu::Window
     # ボタンのクールダウン処理
     @button_cooldown -= 1 if @button_cooldown > 0
 
-    # GPIO17の状態を確認（LOWで押された状態）
+    # GPIO17の状態を確認（HIGHで接触した状態）
     gpio_value = @jump_button.read
-    button_state = gpio_value == 0
+    button_state = gpio_value == 1
 
     # デバッグ: GPIO値を毎フレーム表示
     puts "GPIO17: #{gpio_value}, Button: #{button_state}, OnGround: #{@on_ground}, Cooldown: #{@button_cooldown}"
