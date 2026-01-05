@@ -20,7 +20,9 @@ class GPIO
 
     # gpioget でGPIO17の値を読み取り（バイアス設定でプルアップ）
     result = `gpioget -c #{@chip} -b pull-up #{@pin}`.strip
-    result == "0" ? 0 : 1
+    # 出力形式: "17"=inactive または "17"=active
+    # inactive = 0 (押された状態), active = 1 (押されていない状態)
+    result.include?("inactive") ? 0 : 1
   end
 
   def cleanup
