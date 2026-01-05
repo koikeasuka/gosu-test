@@ -1,3 +1,21 @@
+# GPIO17を使ったジャンプゲーム実装プラン
+
+## 概要
+ラズパイのGPIO17をボタン入力として使用し、物理ボタンでジャンプ操作を可能にする。
+
+## 必要なgem
+```bash
+gem install pi_piper
+```
+
+## 配線
+- GPIO17（物理ピン11）→ ボタンの片側
+- ボタンのもう片側 → GND（物理ピン6、9、14など）
+- 内蔵プルアップ抵抗を使用（ボタンを押すとLOWになる）
+
+## 実装コード
+
+```ruby
 require "gosu"
 require "pi_piper"
 
@@ -38,18 +56,17 @@ class Game < Gosu::Window
   OBSTACLE_WIDTH = 20
   OBSTACLE_HEIGHT = 40
   SPAWN_INTERVAL = 80
-  PLAYER_SCALE = 0.2  # プレイヤーの表示スケール
+  PLAYER_SCALE = 0.2
 
   def initialize
     super 640, 480
     self.caption = "Jamping Game"
 
     # フレームレート制限（ラズパイのパフォーマンス向上）
-    # 33.33ms = 30FPS（デフォルトは16.67ms = 60FPS）
     self.update_interval = 33.33
 
     @player = Gosu::Image.new("player.png")
-    @x = 100  # 画面左側に固定
+    @x = 100
     @y = 240
     @vy = 0
     @on_ground = true
@@ -58,7 +75,7 @@ class Game < Gosu::Window
     @frame_count = 0
     @game_over = false
 
-    # フォントを事前に作成してキャッシュ（パフォーマンス向上）
+    # フォントを事前に作成してキャッシュ
     @game_over_font = Gosu::Font.new(48)
     @restart_font = Gosu::Font.new(24)
 
@@ -99,7 +116,7 @@ class Game < Gosu::Window
     @vy += GRAVITY
     @y += @vy
 
-    # 地面判定（画面の下を地面にする）
+    # 地面判定
     if @y >= @ground_y
       @y = @ground_y
       @vy = 0
@@ -170,3 +187,54 @@ class Game < Gosu::Window
 end
 
 Game.new.show
+```
+
+## 実装のポイント
+
+### 1. GPIO初期化
+```ruby
+@jump_button = PiPiper::Pin.new(pin: 17, direction: :in, pull: :up)
+```
+- `pin: 17`: GPIO17を使用
+- `direction: :in`: 入力モード
+- `pull: :up`: プルアップ抵抗を有効化（ボタンを押すとLOWになる）
+
+### 2. ボタン状態の読み取り
+```ruby
+button_state = @jump_button.read == 0
+```
+- `read == 0`: LOWの時（ボタンが押されている時）にtrue
+
+### 3. チャタリング防止
+```ruby
+@button_cooldown = 10
+```
+- クールダウンカウンタで連続入力を防止
+- 1回のジャンプ後、10フレーム（約0.3秒）は次のジャンプができない
+
+### 4. ゲームオーバー時のリスタート
+```ruby
+if button_state && !@button_pressed
+  reset_game
+  @button_cooldown = 15
+end
+```
+- エッジ検出でボタンが押された瞬間を検知
+- リスタート後もクールダウンで誤動作防止
+
+## テスト方法
+
+1. ラズパイ上で実行
+```bash
+ruby main.rb
+```
+
+2. GPIO17に接続したボタンを押してジャンプ
+3. キーボードのBキーでもジャンプ可能（デバッグ用）
+4. ESCキーで終了
+
+## 注意事項
+
+- ラズパイ上で実行する必要があります（GPIO使用のため）
+- rootまたはgpioグループの権限が必要な場合があります
+- pi_piperがインストールされていることを確認してください
