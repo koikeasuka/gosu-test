@@ -19,7 +19,7 @@ class GPIO
     return 1 unless @available  # gpiogetが使えない場合は常にHIGH（押されていない状態）
 
     # gpioget でGPIO17の値を読み取り（バイアス設定でプルアップ）
-    result = `gpioget -B pull-up #{@chip} #{@pin}`.strip
+    result = `gpioget -c #{@chip} -b pull-up #{@pin}`.strip
     result == "0" ? 0 : 1
   end
 
