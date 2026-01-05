@@ -1,34 +1,30 @@
 require "gosu"
 
-# GPIO制御クラス（/sys/class/gpioを使用）
+# GPIO制御クラス（gpiogetコマンドを使用）
 class GPIO
   def initialize(pin)
     @pin = pin
-    @gpio_path = "/sys/class/gpio/gpio#{@pin}"
+    @chip = "gpiochip0"
 
-    # GPIOをエクスポート
-    unless Dir.exist?(@gpio_path)
-      File.write("/sys/class/gpio/export", @pin.to_s)
-      sleep 0.1  # エクスポート処理の待機
-    end
-
-    # 入力モードに設定
-    File.write("#{@gpio_path}/direction", "in")
-
-    # エッジ検出を設定
-    begin
-      File.write("#{@gpio_path}/edge", "both")
-    rescue
-      # エラーは無視
+    # gpiogetが利用可能か確認
+    unless system("which gpioget > /dev/null 2>&1")
+      puts "警告: gpiogetコマンドが見つかりません。キーボード操作のみ有効です。"
+      @available = false
+    else
+      @available = true
     end
   end
 
   def read
-    File.read("#{@gpio_path}/value").to_i
+    return 1 unless @available  # gpiogetが使えない場合は常にHIGH（押されていない状態）
+
+    # gpioget でGPIO17の値を読み取り（バイアス設定でプルアップ）
+    result = `gpioget -B pull-up #{@chip} #{@pin}`.strip
+    result == "0" ? 0 : 1
   end
 
   def cleanup
-    File.write("/sys/class/gpio/unexport", @pin.to_s) rescue nil
+    # gpiogetは状態を変更しないのでクリーンアップ不要
   end
 end
 
