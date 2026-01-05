@@ -1,5 +1,36 @@
 require "gosu"
-require "pi_piper"
+
+# GPIO制御クラス（/sys/class/gpioを使用）
+class GPIO
+  def initialize(pin)
+    @pin = pin
+    @gpio_path = "/sys/class/gpio/gpio#{@pin}"
+
+    # GPIOをエクスポート
+    unless Dir.exist?(@gpio_path)
+      File.write("/sys/class/gpio/export", @pin.to_s)
+      sleep 0.1  # エクスポート処理の待機
+    end
+
+    # 入力モードに設定
+    File.write("#{@gpio_path}/direction", "in")
+
+    # エッジ検出を設定
+    begin
+      File.write("#{@gpio_path}/edge", "both")
+    rescue
+      # エラーは無視
+    end
+  end
+
+  def read
+    File.read("#{@gpio_path}/value").to_i
+  end
+
+  def cleanup
+    File.write("/sys/class/gpio/unexport", @pin.to_s) rescue nil
+  end
+end
 
 class Obstacle
   attr_accessor :x, :y, :width, :height
@@ -65,8 +96,8 @@ class Game < Gosu::Window
     # ground_yを事前計算
     @ground_y = height - (@player.height * PLAYER_SCALE)
 
-    # GPIO17をプルアップ抵抗付きで入力として設定
-    @jump_button = PiPiper::Pin.new(pin: 17, direction: :in, pull: :up)
+    # GPIO17を入力として設定
+    @jump_button = GPIO.new(17)
     @button_pressed = false
     @button_cooldown = 0
   end
@@ -166,6 +197,11 @@ class Game < Gosu::Window
     end
 
     close if id == Gosu::KB_ESCAPE
+  end
+
+  def close
+    @jump_button.cleanup if @jump_button
+    super
   end
 end
 
