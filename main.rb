@@ -72,7 +72,7 @@ class Game < Gosu::Window
   PLAYER_SCALE = 0.2  # プレイヤーの表示スケール
 
   def initialize
-    super 640, 480
+    super 640, 480, true
     self.caption = "Jamping Game"
 
     # フレームレート制限（ラズパイのパフォーマンス向上）
