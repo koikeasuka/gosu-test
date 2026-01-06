@@ -100,6 +100,7 @@ class Game < Gosu::Window
     @jump_button = GPIO.new(17)
     @button_pressed = false
     @button_cooldown = 0
+    @previous_button_state = false  # 前のフレームのボタン状態
   end
 
   def update
@@ -123,12 +124,16 @@ class Game < Gosu::Window
       return
     end
 
-    # ジャンプ処理（ボタンが押され、地面にいて、クールダウンが終わっている場合）
-    if button_state && @on_ground && @button_cooldown == 0
+    # ジャンプ処理（接触から非接触に変わった瞬間、地面にいて、クールダウンが終わっている場合）
+    # エッジ検出: 前のフレームが接触状態(false)で、現在が非接触状態(true)
+    if !@previous_button_state && button_state && @on_ground && @button_cooldown == 0
       @vy = JUMP_POWER
       @on_ground = false
       @button_cooldown = 10  # 連続ジャンプ防止
     end
+
+    # 次のフレームのために現在の状態を保存
+    @previous_button_state = button_state
 
     # ジャンプ・落下処理
     @vy += GRAVITY
@@ -187,6 +192,7 @@ class Game < Gosu::Window
     @obstacles = []
     @frame_count = 0
     @game_over = false
+    @previous_button_state = false  # ボタン状態もリセット
   end
 
   def button_down(id)
