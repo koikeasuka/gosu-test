@@ -1,6 +1,4 @@
 require "gosu"
-require_relative "voice_input"
-require_relative "fire_breath"
 
 # GPIO制御クラス（gpiogetコマンドを使用）
 class GPIO
@@ -103,10 +101,6 @@ class Game < Gosu::Window
     @button_pressed = false
     @button_cooldown = 0
     @previous_button_state = false  # 前のフレームのボタン状態
-
-    # 音声入力の初期化（音量レベル検出）
-    @voice_input = VoiceInput.new rescue nil
-    @fire_breaths = []  # 炎エフェクトの配列
   end
 
   def update
@@ -173,24 +167,10 @@ class Game < Gosu::Window
         break
       end
     end
-
-    # 音声入力の検出（炎を吹く演出）
-    if @voice_input && @voice_input.voice_detected?
-      @fire_breaths << FireBreath.new(self, @x, @y, PLAYER_SCALE)
-      @voice_input.reset
-    end
-
-    # 炎エフェクトの更新
-    @fire_breaths.each(&:update)
-    @fire_breaths.delete_if(&:finished?)
   end
 
   def draw
     @player.draw(@x, @y, 0, PLAYER_SCALE, PLAYER_SCALE)
-
-    # 炎エフェクトの描画
-    @fire_breaths.each(&:draw)
-
     @obstacles.each { |obstacle| obstacle.draw }
 
     if @game_over
@@ -222,11 +202,6 @@ class Game < Gosu::Window
       @on_ground = false
     end
 
-    # Fキーで炎を吹く（デバッグ/テスト用）
-    if id == Gosu::KB_F && !@game_over
-      @fire_breaths << FireBreath.new(self, @x, @y, PLAYER_SCALE)
-    end
-
     if id == Gosu::KB_RETURN && @game_over
       reset_game
     end
@@ -236,7 +211,6 @@ class Game < Gosu::Window
 
   def close
     @jump_button.cleanup if @jump_button
-    @voice_input.stop if @voice_input
     super
   end
 end
