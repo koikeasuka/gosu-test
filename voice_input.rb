@@ -12,7 +12,6 @@ class VoiceInput
     @detected = false
     @running = false
     @thread = nil
-    @audio_device = nil
 
     # soxがインストールされているか確認
     unless system("which sox > /dev/null 2>&1")
@@ -22,15 +21,12 @@ class VoiceInput
       return
     end
 
-    # マイクデバイスの確認と検出
-    @audio_device = detect_audio_device
-    unless @audio_device
+    # マイクデバイスの確認
+    unless check_microphone
       puts "[VoiceInput] 警告: マイクが見つかりません"
       puts "[VoiceInput] 音声入力機能は無効になります（Fキーでテスト可能）"
       return
     end
-
-    puts "[VoiceInput] 使用するデバイス: #{@audio_device}"
 
     # 音声認識スレッドを起動
     start_listening
@@ -57,27 +53,23 @@ class VoiceInput
 
   private
 
-  def detect_audio_device
+  def check_microphone
+    # ALSA録音デバイスが存在するか確認
     # arecordコマンドで録音デバイスリストを取得
     output = `arecord -l 2>&1`
 
-    # 出力例:
-    # card 2: Device [USB PnP Audio Device], device 0: USB Audio [USB Audio]
-    # カード番号とデバイス番号を抽出
-    if output =~ /card (\d+):.*device (\d+):/
-      card = $1
-      device = $2
-      device_name = "hw:#{card},#{device}"
-      puts "[VoiceInput] マイクデバイスを検出しました: #{device_name}"
-      return device_name
+    # 録音デバイスが1つ以上存在するか確認
+    if output.include?("card") || output.include?("カード")
+      puts "[VoiceInput] マイクデバイスを検出しました"
+      return true
     else
       puts "[VoiceInput] デバッグ: arecord -l の出力:"
       puts output
-      return nil
+      return false
     end
   rescue => e
-    puts "[VoiceInput] マイク検出エラー: #{e.message}"
-    return nil
+    puts "[VoiceInput] マイク確認エラー: #{e.message}"
+    return false
   end
 
   def start_listening
@@ -98,13 +90,11 @@ class VoiceInput
     while @running
       begin
         # soxのrecコマンドで短時間録音して音量レベルを取得
-        # -t alsa: ALSAドライバを使用
-        # hw:X,Y: 特定のハードウェアデバイスを指定
         # -n: 出力ファイルなし（nullデバイス）
         # trim 0 0.3: 0.3秒録音
         # stat: 統計情報を出力（標準エラーに出力されるので2>&1でリダイレクト）
 
-        output = `rec -t alsa #{@audio_device} -n trim 0 #{SAMPLE_INTERVAL} stat 2>&1`
+        output = `rec -n trim 0 #{SAMPLE_INTERVAL} stat 2>&1`
         sample_count += 1
 
         # 最初の2回は詳細なデバッグ出力
