@@ -105,7 +105,6 @@ class Game < Gosu::Window
     # しゃがみ状態
     @is_squatting = false
     @distance_sensor = DistanceSensor.new
-    @distance_check_counter = 0  # 距離センサーチェック用カウンター
     @cached_hitbox = nil  # 当たり判定キャッシュ
 
     # フォントを事前に作成してキャッシュ（パフォーマンス向上）
@@ -250,15 +249,8 @@ class Game < Gosu::Window
   def update_squat_state
     return unless @distance_sensor
 
-    # 3フレームごとに距離センサーをチェック（パフォーマンス向上）
-    @distance_check_counter += 1
-    return unless @distance_check_counter >= 3
-    @distance_check_counter = 0
-
+    # 毎フレーム距離センサーをチェック（反応速度優先）
     distance = @distance_sensor.distance
-
-    # デバッグ: 距離の値を表示
-    puts "距離センサー: #{distance}mm, しゃがみ: #{@is_squatting}, 地面: #{@on_ground}" if distance
 
     return if distance.nil? || distance < 0
     return if distance > 2000 || distance < 30
@@ -269,13 +261,11 @@ class Game < Gosu::Window
       if @on_ground
         @is_squatting = true
         @cached_hitbox = nil  # キャッシュをクリア
-        puts ">>> しゃがみ開始 <<<"
       end
     elsif @is_squatting && distance <= STAND_DISTANCE_THRESHOLD
       # 立つ
       @is_squatting = false
       @cached_hitbox = nil  # キャッシュをクリア
-      puts ">>> しゃがみ解除 <<<"
     end
   end
 
