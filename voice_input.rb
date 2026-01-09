@@ -97,19 +97,22 @@ class VoiceInput
     sample_count = 0
     while @running
       begin
-        # soxのrecコマンドで短時間録音して音量レベルを取得
-        # -t alsa: ALSAドライバを使用
-        # hw:X,Y: 特定のハードウェアデバイスを指定
-        # -n: 出力ファイルなし（nullデバイス）
-        # trim 0 0.3: 0.3秒録音
-        # stat: 統計情報を出力（標準エラーに出力されるので2>&1でリダイレクト）
+        # arecordで録音してsoxで解析
+        # arecord -D hw:X,Y: 特定のデバイスを指定
+        # -f S16_LE: 16bit signed little endian
+        # -r 16000: サンプリングレート 16kHz
+        # -c 1: モノラル
+        # -d 0.3: 0.3秒録音
+        # | sox: パイプでsoxに渡す
+        # -t raw: raw形式の入力
+        # - -n stat: 統計情報を出力
 
-        output = `rec -t alsa #{@audio_device} -n trim 0 #{SAMPLE_INTERVAL} stat 2>&1`
+        output = `arecord -D #{@audio_device} -f S16_LE -r 16000 -c 1 -d #{SAMPLE_INTERVAL} 2>/dev/null | sox -t raw -r 16000 -e signed -b 16 -c 1 - -n stat 2>&1`
         sample_count += 1
 
         # 最初の2回は詳細なデバッグ出力
         if sample_count <= 2
-          puts "[VoiceInput] デバッグ #{sample_count}: recコマンド出力:"
+          puts "[VoiceInput] デバッグ #{sample_count}: コマンド出力:"
           puts output
           puts "---"
         end
