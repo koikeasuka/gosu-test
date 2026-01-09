@@ -73,8 +73,8 @@ class Game < Gosu::Window
   PLAYER_SCALE = 0.2  # プレイヤーの表示スケール
 
   # しゃがみ関連の定数
-  SQUAT_DISTANCE_THRESHOLD = 201  # mm（201mm以上で立ち上がり）
-  STAND_DISTANCE_THRESHOLD = 200  # mm（200mm以下でしゃがみ判定）
+  SQUAT_DISTANCE_THRESHOLD = 200  # mm（200mm以下でしゃがみ判定）
+  STAND_DISTANCE_THRESHOLD = 201  # mm（201mm以上で立ち上がり）
 
   # 空中障害物関連の定数
   AIR_OBSTACLE_HEIGHT = 30
@@ -264,14 +264,14 @@ class Game < Gosu::Window
     return if distance > 2000 || distance < 30
 
     # ヒステリシスを使った状態判定
-    if !@is_squatting && distance >= SQUAT_DISTANCE_THRESHOLD
+    if !@is_squatting && distance <= SQUAT_DISTANCE_THRESHOLD
       # しゃがむ（ジャンプ中でなければ）
       if @on_ground
         @is_squatting = true
         @cached_hitbox = nil  # キャッシュをクリア
         @current_player_image = @player_squat  # 画像を切り替え
       end
-    elsif @is_squatting && distance <= STAND_DISTANCE_THRESHOLD
+    elsif @is_squatting && distance >= STAND_DISTANCE_THRESHOLD
       # 立つ
       @is_squatting = false
       @cached_hitbox = nil  # キャッシュをクリア
