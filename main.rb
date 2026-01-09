@@ -73,8 +73,8 @@ class Game < Gosu::Window
   PLAYER_SCALE = 0.2  # プレイヤーの表示スケール
 
   # しゃがみ関連の定数
-  SQUAT_DISTANCE_THRESHOLD = 401  # mm（401mm以上で立ち上がり）
-  STAND_DISTANCE_THRESHOLD = 400  # mm（400mm以下でしゃがみ判定）
+  SQUAT_DISTANCE_THRESHOLD = 201  # mm（201mm以上で立ち上がり）
+  STAND_DISTANCE_THRESHOLD = 200  # mm（200mm以下でしゃがみ判定）
 
   # 空中障害物関連の定数
   AIR_OBSTACLE_HEIGHT = 30
