@@ -86,8 +86,8 @@ class Game < Gosu::Window
     self.caption = "Jamping Game"
 
     # フレームレート制限（ラズパイのパフォーマンス向上）
-    # 33.33ms = 30FPS（デフォルトは16.67ms = 60FPS）
-    self.update_interval = 33.33
+    # 40ms = 25FPS（パフォーマンス優先）
+    self.update_interval = 40
 
     # プレイヤー画像（通常/ジャンプ時、しゃがみ時）
     @player_stand = Gosu::Image.new("player.png")
@@ -106,6 +106,7 @@ class Game < Gosu::Window
     @is_squatting = false
     @distance_sensor = DistanceSensor.new
     @cached_hitbox = nil  # 当たり判定キャッシュ
+    @current_player_image = @player_stand  # 描画用画像キャッシュ
 
     # フォントを事前に作成してキャッシュ（パフォーマンス向上）
     @game_over_font = Gosu::Font.new(48)
@@ -179,15 +180,18 @@ class Game < Gosu::Window
       @frame_count = 0
     end
 
-    # 障害物の更新
-    @obstacles.each { |obstacle| obstacle.update(OBSTACLE_SPEED) }
+    # 障害物の更新と削除（1回のループで処理）
+    @obstacles.delete_if { |obstacle| obstacle.update(OBSTACLE_SPEED); obstacle.off_screen? }
 
-    # 画面外の障害物を削除
-    @obstacles.reject! { |obstacle| obstacle.off_screen? }
+    # 障害物数を制限（最大8個）
+    @obstacles.shift while @obstacles.size > 8
 
-    # 衝突判定（しゃがみ対応）
+    # 衝突判定（しゃがみ対応、プレイヤー近くの障害物のみ）
     hitbox = player_hitbox
     @obstacles.each do |obstacle|
+      # プレイヤーから200ピクセル以内の障害物のみチェック
+      next if obstacle.x > hitbox[:x] + 200 || obstacle.x + obstacle.width < hitbox[:x] - 50
+
       if obstacle.colliding?(hitbox[:x], hitbox[:y], hitbox[:width], hitbox[:height])
         @game_over = true
         break
@@ -196,9 +200,8 @@ class Game < Gosu::Window
   end
 
   def draw
-    # プレイヤーの描画（状態に応じて画像を切り替え）
-    current_image = @is_squatting ? @player_squat : @player_stand
-    current_image.draw(@x, @y, 0, PLAYER_SCALE, PLAYER_SCALE)
+    # プレイヤーの描画（キャッシュした画像を使用）
+    @current_player_image.draw(@x, @y, 0, PLAYER_SCALE, PLAYER_SCALE)
 
     @obstacles.each { |obstacle| obstacle.draw }
 
@@ -249,7 +252,12 @@ class Game < Gosu::Window
   def update_squat_state
     return unless @distance_sensor
 
-    # 毎フレーム距離センサーをチェック（反応速度優先）
+    # 2フレームごとに距離センサーをチェック（バランス重視）
+    @distance_check_counter ||= 0
+    @distance_check_counter += 1
+    return unless @distance_check_counter >= 2
+    @distance_check_counter = 0
+
     distance = @distance_sensor.distance
 
     return if distance.nil? || distance < 0
@@ -261,11 +269,13 @@ class Game < Gosu::Window
       if @on_ground
         @is_squatting = true
         @cached_hitbox = nil  # キャッシュをクリア
+        @current_player_image = @player_squat  # 画像を切り替え
       end
     elsif @is_squatting && distance <= STAND_DISTANCE_THRESHOLD
       # 立つ
       @is_squatting = false
       @cached_hitbox = nil  # キャッシュをクリア
+      @current_player_image = @player_stand  # 画像を切り替え
     end
   end
 
