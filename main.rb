@@ -256,6 +256,10 @@ class Game < Gosu::Window
     @distance_check_counter = 0
 
     distance = @distance_sensor.distance
+
+    # デバッグ: 距離の値を表示
+    puts "距離センサー: #{distance}mm, しゃがみ: #{@is_squatting}, 地面: #{@on_ground}" if distance
+
     return if distance.nil? || distance < 0
     return if distance > 2000 || distance < 30
 
@@ -265,11 +269,13 @@ class Game < Gosu::Window
       if @on_ground
         @is_squatting = true
         @cached_hitbox = nil  # キャッシュをクリア
+        puts ">>> しゃがみ開始 <<<"
       end
     elsif @is_squatting && distance <= STAND_DISTANCE_THRESHOLD
       # 立つ
       @is_squatting = false
       @cached_hitbox = nil  # キャッシュをクリア
+      puts ">>> しゃがみ解除 <<<"
     end
   end
 
