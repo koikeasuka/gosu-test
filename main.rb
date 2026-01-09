@@ -21,8 +21,6 @@ class GPIO
 
     # gpioget でGPIO17の値を読み取り（バイアス設定でプルアップ）
     result = `gpioget -c #{@chip} -b pull-up #{@pin} 2>&1`.strip
-    # デバッグ: コマンドの生の出力を表示
-    puts "DEBUG: gpioget output: '#{result}'"
     # 出力形式: "17"=inactive または "17"=active
     # =active = 1 (非接触状態), =inactive = 0 (接触した状態)
     result.include?("=active") ? 1 : 0
@@ -107,6 +105,8 @@ class Game < Gosu::Window
     # しゃがみ状態
     @is_squatting = false
     @distance_sensor = DistanceSensor.new
+    @distance_check_counter = 0  # 距離センサーチェック用カウンター
+    @cached_hitbox = nil  # 当たり判定キャッシュ
 
     # フォントを事前に作成してキャッシュ（パフォーマンス向上）
     @game_over_font = Gosu::Font.new(48)
@@ -129,9 +129,6 @@ class Game < Gosu::Window
     # GPIO17の状態を確認（HIGHで非接触状態）
     gpio_value = @jump_button.read
     button_state = gpio_value == 1
-
-    # デバッグ: GPIO値を毎フレーム表示
-    puts "GPIO17: #{gpio_value}, Button: #{button_state}, OnGround: #{@on_ground}, Cooldown: #{@button_cooldown}"
 
     if @game_over
       # ゲームオーバー時：ボタンでリスタート
@@ -227,6 +224,7 @@ class Game < Gosu::Window
     @game_over = false
     @previous_button_state = false  # ボタン状態もリセット
     @is_squatting = false  # しゃがみ状態もリセット
+    @cached_hitbox = nil  # キャッシュもリセット
   end
 
   def button_down(id)
@@ -239,7 +237,7 @@ class Game < Gosu::Window
     # Cキーでしゃがみテスト（デバッグ用）
     if id == Gosu::KB_C && @on_ground && !@game_over
       @is_squatting = !@is_squatting
-      puts "しゃがみ切り替え: #{@is_squatting}"
+      @cached_hitbox = nil
     end
 
     if id == Gosu::KB_RETURN && @game_over
@@ -252,6 +250,11 @@ class Game < Gosu::Window
   def update_squat_state
     return unless @distance_sensor
 
+    # 3フレームごとに距離センサーをチェック（パフォーマンス向上）
+    @distance_check_counter += 1
+    return unless @distance_check_counter >= 3
+    @distance_check_counter = 0
+
     distance = @distance_sensor.distance
     return if distance.nil? || distance < 0
     return if distance > 2000 || distance < 30
@@ -261,28 +264,37 @@ class Game < Gosu::Window
       # しゃがむ（ジャンプ中でなければ）
       if @on_ground
         @is_squatting = true
-        puts "しゃがみ開始（距離: #{distance}mm）"
+        @cached_hitbox = nil  # キャッシュをクリア
       end
     elsif @is_squatting && distance <= STAND_DISTANCE_THRESHOLD
       # 立つ
       @is_squatting = false
-      puts "しゃがみ解除（距離: #{distance}mm）"
+      @cached_hitbox = nil  # キャッシュをクリア
     end
   end
 
   def player_hitbox
+    # キャッシュがある場合は位置だけ更新して返す
+    if @cached_hitbox
+      @cached_hitbox[:x] = @x
+      @cached_hitbox[:y] = @is_squatting ? @y + @cached_hitbox[:y_offset] : @y
+      return @cached_hitbox
+    end
+
+    # キャッシュを計算
     if @is_squatting
       # しゃがみ時は高さを60%に縮小
       width = @player_squat.width * PLAYER_SCALE
       height = @player_squat.height * PLAYER_SCALE * 0.6
       y_offset = @player_squat.height * PLAYER_SCALE * 0.4
-      { x: @x, y: @y + y_offset, width: width, height: height }
+      @cached_hitbox = { x: @x, y: @y + y_offset, width: width, height: height, y_offset: y_offset }
     else
       # 通常時
       width = @player_stand.width * PLAYER_SCALE
       height = @player_stand.height * PLAYER_SCALE
-      { x: @x, y: @y, width: width, height: height }
+      @cached_hitbox = { x: @x, y: @y, width: width, height: height, y_offset: 0 }
     end
+    @cached_hitbox
   end
 
   def close
