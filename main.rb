@@ -1,4 +1,5 @@
 require "gosu"
+require_relative "distance_sensor"
 
 # GPIO制御クラス（gpiogetコマンドを使用）
 class GPIO
@@ -33,13 +34,14 @@ class GPIO
 end
 
 class Obstacle
-  attr_accessor :x, :y, :width, :height
+  attr_accessor :x, :y, :width, :height, :type
 
-  def initialize(x, y, width, height)
+  def initialize(x, y, width, height, type = :ground)
     @x = x
     @y = y
     @width = width
     @height = height
+    @type = type  # :ground または :air
   end
 
   def update(speed)
@@ -58,7 +60,8 @@ class Obstacle
   end
 
   def draw
-    Gosu.draw_rect(@x, @y, @width, @height, Gosu::Color::GREEN)
+    color = @type == :air ? Gosu::Color::RED : Gosu::Color::GREEN
+    Gosu.draw_rect(@x, @y, @width, @height, color)
   end
 end
 
@@ -71,6 +74,15 @@ class Game < Gosu::Window
   SPAWN_INTERVAL = 80
   PLAYER_SCALE = 0.2  # プレイヤーの表示スケール
 
+  # しゃがみ関連の定数
+  SQUAT_DISTANCE_THRESHOLD = 401  # mm（401mm以上で立ち上がり）
+  STAND_DISTANCE_THRESHOLD = 400  # mm（400mm以下でしゃがみ判定）
+
+  # 空中障害物関連の定数
+  AIR_OBSTACLE_HEIGHT = 30
+  AIR_OBSTACLE_Y_OFFSET = 100  # 地面からの高さ
+  AIR_OBSTACLE_SPAWN_RATE = 0.3  # 出現確率（30%）
+
   def initialize
     super 640, 480, true
     self.caption = "Jamping Game"
@@ -79,7 +91,10 @@ class Game < Gosu::Window
     # 33.33ms = 30FPS（デフォルトは16.67ms = 60FPS）
     self.update_interval = 33.33
 
-    @player = Gosu::Image.new("player.png")
+    # プレイヤー画像（通常/ジャンプ時、しゃがみ時）
+    @player_stand = Gosu::Image.new("player.png")
+    @player_squat = Gosu::Image.new("player_squat.png")
+
     @x = 100  # 画面左側に固定
     @y = 240
     @vy = 0
@@ -89,12 +104,16 @@ class Game < Gosu::Window
     @frame_count = 0
     @game_over = false
 
+    # しゃがみ状態
+    @is_squatting = false
+    @distance_sensor = DistanceSensor.new
+
     # フォントを事前に作成してキャッシュ（パフォーマンス向上）
     @game_over_font = Gosu::Font.new(48)
     @restart_font = Gosu::Font.new(24)
 
     # ground_yを事前計算
-    @ground_y = height - (@player.height * PLAYER_SCALE)
+    @ground_y = height - (@player_stand.height * PLAYER_SCALE)
 
     # GPIO17を入力として設定
     @jump_button = GPIO.new(17)
@@ -124,9 +143,12 @@ class Game < Gosu::Window
       return
     end
 
-    # ジャンプ処理（接触から非接触に変わった瞬間、地面にいて、クールダウンが終わっている場合）
+    # 距離センサーからしゃがみ判定
+    update_squat_state
+
+    # ジャンプ処理（接触から非接触に変わった瞬間、地面にいて、クールダウンが終わっている場合、しゃがんでいない場合）
     # エッジ検出: 前のフレームが接触状態(false)で、現在が非接触状態(true)
-    if !@previous_button_state && button_state && @on_ground && @button_cooldown == 0
+    if !@previous_button_state && button_state && @on_ground && @button_cooldown == 0 && !@is_squatting
       @vy = JUMP_POWER
       @on_ground = false
       @button_cooldown = 10  # 連続ジャンプ防止
@@ -146,11 +168,18 @@ class Game < Gosu::Window
       @on_ground = true
     end
 
-    # 障害物の生成
+    # 障害物の生成（地面または空中をランダムで生成）
     @frame_count += 1
     if @frame_count >= SPAWN_INTERVAL
-      obstacle_y = height - OBSTACLE_HEIGHT
-      @obstacles << Obstacle.new(width, obstacle_y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT)
+      if rand < AIR_OBSTACLE_SPAWN_RATE
+        # 空中障害物（30%の確率）
+        obstacle_y = @ground_y - AIR_OBSTACLE_Y_OFFSET
+        @obstacles << Obstacle.new(width, obstacle_y, OBSTACLE_WIDTH, AIR_OBSTACLE_HEIGHT, :air)
+      else
+        # 地面障害物（70%の確率）
+        obstacle_y = height - OBSTACLE_HEIGHT
+        @obstacles << Obstacle.new(width, obstacle_y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT, :ground)
+      end
       @frame_count = 0
     end
 
@@ -160,9 +189,10 @@ class Game < Gosu::Window
     # 画面外の障害物を削除
     @obstacles.reject! { |obstacle| obstacle.off_screen? }
 
-    # 衝突判定
+    # 衝突判定（しゃがみ対応）
+    hitbox = player_hitbox
     @obstacles.each do |obstacle|
-      if obstacle.colliding?(@x, @y, @player.width * PLAYER_SCALE, @player.height * PLAYER_SCALE)
+      if obstacle.colliding?(hitbox[:x], hitbox[:y], hitbox[:width], hitbox[:height])
         @game_over = true
         break
       end
@@ -170,7 +200,10 @@ class Game < Gosu::Window
   end
 
   def draw
-    @player.draw(@x, @y, 0, PLAYER_SCALE, PLAYER_SCALE)
+    # プレイヤーの描画（状態に応じて画像を切り替え）
+    current_image = @is_squatting ? @player_squat : @player_stand
+    current_image.draw(@x, @y, 0, PLAYER_SCALE, PLAYER_SCALE)
+
     @obstacles.each { |obstacle| obstacle.draw }
 
     if @game_over
@@ -193,13 +226,20 @@ class Game < Gosu::Window
     @frame_count = 0
     @game_over = false
     @previous_button_state = false  # ボタン状態もリセット
+    @is_squatting = false  # しゃがみ状態もリセット
   end
 
   def button_down(id)
     # キーボード入力も残す（デバッグ用）
-    if id == Gosu::KB_B && @on_ground && !@game_over
+    if id == Gosu::KB_B && @on_ground && !@game_over && !@is_squatting
       @vy = JUMP_POWER
       @on_ground = false
+    end
+
+    # Cキーでしゃがみテスト（デバッグ用）
+    if id == Gosu::KB_C && @on_ground && !@game_over
+      @is_squatting = !@is_squatting
+      puts "しゃがみ切り替え: #{@is_squatting}"
     end
 
     if id == Gosu::KB_RETURN && @game_over
@@ -207,6 +247,42 @@ class Game < Gosu::Window
     end
 
     close if id == Gosu::KB_ESCAPE
+  end
+
+  def update_squat_state
+    return unless @distance_sensor
+
+    distance = @distance_sensor.distance
+    return if distance.nil? || distance < 0
+    return if distance > 2000 || distance < 30
+
+    # ヒステリシスを使った状態判定
+    if !@is_squatting && distance >= SQUAT_DISTANCE_THRESHOLD
+      # しゃがむ（ジャンプ中でなければ）
+      if @on_ground
+        @is_squatting = true
+        puts "しゃがみ開始（距離: #{distance}mm）"
+      end
+    elsif @is_squatting && distance <= STAND_DISTANCE_THRESHOLD
+      # 立つ
+      @is_squatting = false
+      puts "しゃがみ解除（距離: #{distance}mm）"
+    end
+  end
+
+  def player_hitbox
+    if @is_squatting
+      # しゃがみ時は高さを60%に縮小
+      width = @player_squat.width * PLAYER_SCALE
+      height = @player_squat.height * PLAYER_SCALE * 0.6
+      y_offset = @player_squat.height * PLAYER_SCALE * 0.4
+      { x: @x, y: @y + y_offset, width: width, height: height }
+    else
+      # 通常時
+      width = @player_stand.width * PLAYER_SCALE
+      height = @player_stand.height * PLAYER_SCALE
+      { x: @x, y: @y, width: width, height: height }
+    end
   end
 
   def close
