@@ -78,7 +78,7 @@ class Game < Gosu::Window
 
   # 空中障害物関連の定数
   AIR_OBSTACLE_HEIGHT = 30
-  AIR_OBSTACLE_Y_OFFSET = 100  # 地面からの高さ
+  AIR_OBSTACLE_Y_OFFSET = 20  # 地面からの高さ（立っている時の頭付近）
   AIR_OBSTACLE_SPAWN_RATE = 0.3  # 出現確率（30%）
 
   def initialize
@@ -200,8 +200,10 @@ class Game < Gosu::Window
   end
 
   def draw
-    # プレイヤーの描画（キャッシュした画像を使用）
-    @current_player_image.draw(@x, @y, 0, PLAYER_SCALE, PLAYER_SCALE)
+    # プレイヤーの描画（しゃがみ時は高さを半分に）
+    scale_y = @is_squatting ? PLAYER_SCALE * 0.5 : PLAYER_SCALE
+    y_draw = @is_squatting ? @y + (@current_player_image.height * PLAYER_SCALE * 0.5) : @y
+    @current_player_image.draw(@x, y_draw, 0, PLAYER_SCALE, scale_y)
 
     @obstacles.each { |obstacle| obstacle.draw }
 
@@ -289,10 +291,10 @@ class Game < Gosu::Window
 
     # キャッシュを計算
     if @is_squatting
-      # しゃがみ時は高さを60%に縮小
+      # しゃがみ時は高さを50%に縮小
       width = @player_squat.width * PLAYER_SCALE
-      height = @player_squat.height * PLAYER_SCALE * 0.6
-      y_offset = @player_squat.height * PLAYER_SCALE * 0.4
+      height = @player_squat.height * PLAYER_SCALE * 0.5
+      y_offset = @player_squat.height * PLAYER_SCALE * 0.5
       @cached_hitbox = { x: @x, y: @y + y_offset, width: width, height: height, y_offset: y_offset }
     else
       # 通常時
