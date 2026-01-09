@@ -54,22 +54,9 @@ class VoiceInput
   private
 
   def check_microphone
-    # ALSA録音デバイスが存在するか確認
-    # arecordコマンドで録音デバイスリストを取得
-    output = `arecord -l 2>&1`
-
-    # 録音デバイスが1つ以上存在するか確認
-    if output.include?("card") || output.include?("カード")
-      puts "[VoiceInput] マイクデバイスを検出しました"
-      return true
-    else
-      puts "[VoiceInput] デバッグ: arecord -l の出力:"
-      puts output
-      return false
-    end
-  rescue => e
-    puts "[VoiceInput] マイク確認エラー: #{e.message}"
-    return false
+    # macOSでデフォルトのオーディオ入力デバイスが存在するか確認
+    # soxが動作するか簡単なテスト
+    system("rec -n -d 0.01 /tmp/test_mic.wav 2>/dev/null")
   end
 
   def start_listening
@@ -90,10 +77,11 @@ class VoiceInput
       begin
         # soxのrecコマンドで短時間録音して音量レベルを取得
         # -n: 出力ファイルなし（nullデバイス）
+        # -d: デフォルト入力デバイス
         # trim 0 0.3: 0.3秒録音
-        # stat: 統計情報を出力（標準エラーに出力されるので2>&1でリダイレクト）
+        # stat: 統計情報を出力
 
-        output = `rec -n trim 0 #{SAMPLE_INTERVAL} stat 2>&1`
+        output = `rec -n -d trim 0 #{SAMPLE_INTERVAL} stat 2>&1`
 
         # 統計情報から最大振幅（Maximum amplitude）を抽出
         # 出力例: "Maximum amplitude:     0.123456"
