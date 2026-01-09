@@ -86,6 +86,7 @@ class VoiceInput
   end
 
   def listen_loop
+    sample_count = 0
     while @running
       begin
         # soxのrecコマンドで短時間録音して音量レベルを取得
@@ -94,17 +95,23 @@ class VoiceInput
         # stat: 統計情報を出力（標準エラーに出力されるので2>&1でリダイレクト）
 
         output = `rec -n trim 0 #{SAMPLE_INTERVAL} stat 2>&1`
+        sample_count += 1
+
+        # 最初の2回は詳細なデバッグ出力
+        if sample_count <= 2
+          puts "[VoiceInput] デバッグ #{sample_count}: recコマンド出力:"
+          puts output
+          puts "---"
+        end
 
         # 統計情報から最大振幅（Maximum amplitude）を抽出
         # 出力例: "Maximum amplitude:     0.123456"
         if output =~ /Maximum amplitude:\s+([\d.]+)/
           max_amplitude = $1.to_f
 
-          # デバッグ出力（最初の数回のみ）
-          @debug_count ||= 0
-          if @debug_count < 5
-            puts "[VoiceInput] 音量: #{(max_amplitude * 100).round(1)}% (閾値: #{(VOLUME_THRESHOLD * 100).round(1)}%)"
-            @debug_count += 1
+          # 音量を常に表示（最初の10回）
+          if sample_count <= 10
+            puts "[VoiceInput] サンプル#{sample_count}: 音量 #{(max_amplitude * 100).round(1)}% (閾値: #{(VOLUME_THRESHOLD * 100).round(1)}%)"
           end
 
           # 閾値を超えたら音声検出
@@ -113,10 +120,16 @@ class VoiceInput
             puts "[VoiceInput] 🔥 音声検出！（音量: #{(max_amplitude * 100).round(1)}%）"
             sleep(0.5)  # 連続検出を防ぐための短い待機
           end
+        else
+          # Maximum amplitudeが見つからない場合
+          if sample_count <= 2
+            puts "[VoiceInput] 警告: Maximum amplitudeが見つかりません"
+          end
         end
 
       rescue => e
         puts "[VoiceInput] サンプリングエラー: #{e.message}"
+        puts e.backtrace.first(3)
         sleep(1.0)
       end
     end
